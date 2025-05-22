@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import locale
 
-# Configurar locale para formato brasileiro
-locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
+# --- Função para formatar moeda ---
+def formatar_moeda(valor):
+    return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 st.set_page_config(page_title="Simulador de Consórcio", layout="wide")
 
@@ -44,7 +44,6 @@ with col2:
     prazo_contemplacao = st.number_input("Prazo de contemplação (meses)", min_value=0, max_value=prazo_meses, step=1)
     tipo_consorcio = st.selectbox("Tipo de consórcio", ["Imóvel", "Veículo"])
 
-# Lance será definido após cálculo do saldo devedor
 lance_proprio = st.number_input("Lance com recursos próprios (R$)", min_value=0.0, step=100.0, format="%.2f")
 
 # --- Inputs extras para Alavancagem ---
@@ -71,13 +70,12 @@ if st.button("Simular"):
     parcelas_restantes = prazo_meses - prazo_contemplacao
     parcela_apos_contemplacao = saldo_devedor / parcelas_restantes if parcelas_restantes > 0 else 0.0
 
-    # Corrigir saldo devedor pelo índice no momento da contemplação
     anos_corrigidos = prazo_contemplacao // 12
     saldo_devedor_corrigido = saldo_devedor * ((1 + indice_medio) ** anos_corrigidos)
 
     # --- Validação do lance ---
     if lance_proprio > saldo_devedor_corrigido:
-        st.error(f"O lance com recursos próprios (R$ {lance_proprio:,.2f}) não pode ser maior que o saldo devedor na contemplação (R$ {saldo_devedor_corrigido:,.2f})")
+        st.error(f"O lance com recursos próprios ({formatar_moeda(lance_proprio)}) não pode ser maior que o saldo devedor na contemplação ({formatar_moeda(saldo_devedor_corrigido)})")
         st.stop()
 
     saldo_devedor_pos_lance = saldo_devedor_corrigido - lance_proprio
@@ -147,12 +145,12 @@ if st.button("Simular"):
         st.markdown("### 🔢 Dados Gerais")
         st.write(f"**Prazo em anos:** {prazo_anos:.2f}")
         st.write(f"**Índice de correção:** {nome_indice} ({indice_medio*100:.2f}% a.a.)")
-        st.write(f"**1ª Parcela:** R$ {df_parcelas.loc[0, 'Total (R$)']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        st.write(f"**1ª Parcela:** {formatar_moeda(df_parcelas.loc[0, 'Total (R$)'])}")
         if prazo_contemplacao < prazo_meses:
-            st.write(f"**Parcela após contemplação:** R$ {df_parcelas.loc[prazo_contemplacao, 'Total (R$)']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-        st.write(f"**Total pago:** R$ {custo_total:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-        st.write(f"**Crédito corrigido na contemplação:** R$ {valor_credito_corrigido:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-        st.write(f"**Custo real:** R$ {custo_real:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+            st.write(f"**Parcela após contemplação:** {formatar_moeda(df_parcelas.loc[prazo_contemplacao, 'Total (R$)'])}")
+        st.write(f"**Total pago:** {formatar_moeda(custo_total)}")
+        st.write(f"**Crédito corrigido na contemplação:** {formatar_moeda(valor_credito_corrigido)}")
+        st.write(f"**Custo real:** {formatar_moeda(custo_real)}")
 
     with colB:
         if tipo_estrategia == "Alavancagem":
@@ -160,18 +158,18 @@ if st.button("Simular"):
             st.write(f"**Prazo do investimento:** {meses_invest} meses")
             if tipo_investimento == "Inflação":
                 st.write(f"**Índice de correção:** IPCA (4,50% a.a)")
-            st.write(f"**Valor investido:** R$ {valor_investido:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-            st.write(f"**Rendimento bruto:** R$ {rendimento_bruto:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-            st.write(f"**Imposto de renda:** R$ {imposto:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-            st.write(f"**Montante líquido:** R$ {montante_liquido:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+            st.write(f"**Valor investido:** {formatar_moeda(valor_investido)}")
+            st.write(f"**Rendimento bruto:** {formatar_moeda(rendimento_bruto)}")
+            st.write(f"**Imposto de renda:** {formatar_moeda(imposto)}")
+            st.write(f"**Montante líquido:** {formatar_moeda(montante_liquido)}")
             if resultado_liquido >= 0:
-                st.success(f"**Resultado da alavancagem:** R$ {resultado_liquido:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+                st.success(f"**Resultado da alavancagem:** {formatar_moeda(resultado_liquido)}")
             else:
-                st.error(f"**Resultado da alavancagem:** R$ {resultado_liquido:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+                st.error(f"**Resultado da alavancagem:** {formatar_moeda(resultado_liquido)}")
 
     # ----- Tabela de Parcelas -----
     st.subheader("📋 Detalhamento das Parcelas")
     for col in ["Valor da parcela (R$)", "Correção monetária (R$)", "Total (R$)"]:
-        df_parcelas[col] = df_parcelas[col].apply(lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        df_parcelas[col] = df_parcelas[col].apply(formatar_moeda)
 
     st.dataframe(df_parcelas, use_container_width=True, hide_index=True)
